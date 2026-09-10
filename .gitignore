@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ESLint / lint reports
+eslint-json.txt
+eslint-modal.txt
+lint-out.txt
+lint-report.txt

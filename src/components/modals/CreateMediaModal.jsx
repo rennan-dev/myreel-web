@@ -1,73 +1,162 @@
 import { useState } from 'react';
 import api from '../../api/axios';
+import { Modal } from '../ui/Modal';
+import { Input } from '../ui/Input';
+import { Label } from '../ui/Label';
+import { Select } from '../ui/Select';
+import { Textarea } from '../ui/Textarea';
+import { Checkbox } from '../ui/Checkbox';
+import { Button } from '../ui/button';
 
-export default function CreateMediaModal({ onClose, onSuccess }) {
-    const [formData, setFormData] = useState({
-        type: 'filme', name: '', rating: '', image: '', description: '',
-        release_date: '', is_watched: false, watched_at: ''
-    });
+const INITIAL_FORM = {
+    type: 'filme', name: '', rating: '', image: '', description: '',
+    release_date: '', is_watched: false, watched_at: ''
+};
+
+export default function CreateMediaModal({ open, onClose, onSuccess }) {
+    const [formData, setFormData] = useState(INITIAL_FORM);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState('');
+
+    //redefine o formulário sempre que o modal fechar, garantindo um form limpo na próxima abertura
+    const handleClose = () => {
+        setFormData(INITIAL_FORM);
+        setSubmitError('');
+        setSubmitting(false);
+        onClose();
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setSubmitting(true);
+        setSubmitError('');
         try {
             await api.post('/media', formData);
             onSuccess(); //recarrega a lista no Dashboard
-            onClose();   //fecha o modal
+            handleClose(); //fecha o modal
         } catch (error) {
-            alert('Erro ao criar: ' + (error.response?.data?.message || 'Verifique os campos.'));
+            setSubmitError(error.response?.data?.message || 'Erro ao criar: verifique os campos.');
+            setSubmitting(false);
         }
     };
 
+    const set = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-                <h2 className="mb-4 text-xl font-bold">Adicionar à Lista</h2>
-                
-                <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-                    <select
-                        className="rounded border p-2"
-                        value={formData.type}
-                        onChange={e => setFormData({...formData, type: e.target.value})}
-                    >
-                        <option value="filme">Filme</option>
-                        <option value="serie">Série</option>
-                        <option value="anime">Anime</option>
-                    </select>
-
-                    <input type="text" placeholder="Nome" required className="rounded border p-2" 
-                           value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                    
-                    <input type="number" step="0.1" min="1" max="5" placeholder="Nota (1 a 5)" className="rounded border p-2"
-                           value={formData.rating} onChange={e => setFormData({...formData, rating: e.target.value})} />
-
-                    <textarea placeholder="Descrição" className="rounded border p-2"
-                              value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-
-                    {formData.type === 'filme' && (
-                        <div className="flex flex-col gap-3 rounded bg-gray-50 p-3 border">
-                            <label className="text-sm font-semibold">Exclusivo de Filme:</label>
-                            <input type="date" className="rounded border p-2" required
-                                   value={formData.release_date} onChange={e => setFormData({...formData, release_date: e.target.value})} />
-                            
-                            <label className="flex items-center gap-2">
-                                <input type="checkbox" checked={formData.is_watched}
-                                       onChange={e => setFormData({...formData, is_watched: e.target.checked})} />
-                                Já assistido?
-                            </label>
-
-                            {formData.is_watched && (
-                                <input type="date" className="rounded border p-2" required
-                                       value={formData.watched_at} onChange={e => setFormData({...formData, watched_at: e.target.value})} />
-                            )}
-                        </div>
-                    )}
-
-                    <div className="mt-4 flex justify-end gap-2">
-                        <button type="button" onClick={onClose} className="rounded bg-gray-300 px-4 py-2 hover:bg-gray-400">Cancelar</button>
-                        <button type="submit" className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">Salvar</button>
+        <Modal
+            open={open}
+            onClose={handleClose}
+            title="Adicionar à lista"
+            description="Cadastre um novo filme, série ou anime."
+        >
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <Label htmlFor="type">Tipo</Label>
+                        <Select id="type" value={formData.type} onChange={(e) => set('type', e.target.value)}>
+                            <option value="filme">Filme</option>
+                            <option value="serie">Série</option>
+                            <option value="anime">Anime</option>
+                        </Select>
                     </div>
-                </form>
-            </div>
-        </div>
+                    <div>
+                        <Label htmlFor="rating">Nota (1 a 5)</Label>
+                        <Input
+                            id="rating"
+                            type="number"
+                            step="0.1"
+                            min="1"
+                            max="5"
+                            placeholder="Ex.: 4.5"
+                            value={formData.rating}
+                            onChange={(e) => set('rating', e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <Label htmlFor="name">Nome</Label>
+                    <Input
+                        id="name"
+                        type="text"
+                        placeholder="Nome do título"
+                        required
+                        value={formData.name}
+                        onChange={(e) => set('name', e.target.value)}
+                    />
+                </div>
+
+                <div>
+                    <Label htmlFor="image">Capa (URL da imagem)</Label>
+                    <Input
+                        id="image"
+                        type="url"
+                        placeholder="https://..."
+                        value={formData.image}
+                        onChange={(e) => set('image', e.target.value)}
+                    />
+                </div>
+
+                <div>
+                    <Label htmlFor="description">Descrição</Label>
+                    <Textarea
+                        id="description"
+                        placeholder="Uma breve sinopse..."
+                        value={formData.description}
+                        onChange={(e) => set('description', e.target.value)}
+                    />
+                </div>
+
+                {formData.type === 'filme' && (
+                    <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Dados exclusivos do filme
+                        </p>
+                        <div>
+                            <Label htmlFor="release_date">Data de lançamento</Label>
+                            <Input
+                                id="release_date"
+                                type="date"
+                                required
+                                value={formData.release_date}
+                                onChange={(e) => set('release_date', e.target.value)}
+                            />
+                        </div>
+                        <Checkbox
+                            label="Já assisti a este filme"
+                            checked={formData.is_watched}
+                            onChange={(e) => set('is_watched', e.target.checked)}
+                        />
+                        {formData.is_watched && (
+                            <div>
+                                <Label htmlFor="watched_at">Quando assistiu?</Label>
+                                <Input
+                                    id="watched_at"
+                                    type="date"
+                                    required
+                                    value={formData.watched_at}
+                                    onChange={(e) => set('watched_at', e.target.value)}
+                                />
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {submitError && (
+                    <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                        {submitError}
+                    </p>
+                )}
+
+                <div className="mt-2 flex justify-end gap-3">
+                    <Button type="button" variant="ghost" onClick={handleClose}>
+                        Cancelar
+                    </Button>
+                    <Button type="submit" disabled={submitting}>
+                        {submitting ? 'Salvando...' : 'Salvar'}
+                    </Button>
+                </div>
+            </form>
+        </Modal>
     );
 }
