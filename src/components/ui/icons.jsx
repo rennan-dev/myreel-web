@@ -116,6 +116,14 @@ export function IconPlay({ className }) {
   );
 }
 
+export function IconArrowLeft({ className }) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M19 12H5m7-7-7 7 7 7" />
+    </svg>
+  );
+}
+
 export function IconGhost({ className }) {
   return (
     <svg {...svgProps} className={className}>

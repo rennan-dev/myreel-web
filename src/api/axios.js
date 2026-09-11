@@ -14,6 +14,10 @@ api.interceptors.request.use((config) => {
     if(token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
+    // quando enviar FormData (upload), deixa o browser definir o boundary do multipart
+    if (config.data instanceof FormData) {
+        delete config.headers['Content-Type'];
+    }
     return config;
 }, (error) => {
     return Promise.reject(error);
