@@ -1,9 +1,8 @@
 import { useEffect, useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
 import api from '../api/axios';
-import CreateMediaModal from '../components/modals/CreateMediaModal';
-import ManageSeasonsModal from '../components/modals/ManageSeasonsModal';
 import { Button } from '../components/ui/button';
 import { MetalButton } from '../components/ui/MetalButton';
 import { Card } from '../components/ui/Card';
@@ -11,6 +10,7 @@ import { Badge } from '../components/ui/Badge';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingState } from '../components/ui/LoadingState';
+import { resolveCoverUrl } from '../lib/utils';
 import {
     IconReel, IconFilm, IconTv, IconSpark, IconStar, IconCalendar, IconCheck, IconLogOut, IconPlus,
 } from '../components/ui/icons';
@@ -46,20 +46,31 @@ function StatCard({ Icon, label, value, accent }) {
     );
 }
 
-function MediaCard({ item, onManage }) {
+function MediaCard({ item }) {
+    const navigate = useNavigate();
     const meta = TYPE_META[item.type] || TYPE_META.filme;
     const TypeIcon = meta.Icon;
     const isFilm = item.type === 'filme';
     const isWatched = Boolean(item.is_watched);
-    const hasCover = Boolean(item.image);
+    const coverUrl = resolveCoverUrl(item);
+    const hasCover = Boolean(coverUrl);
     const rating = Number(item.rating);
 
     return (
-        <Card interactive spotlight className="flex h-full flex-col">
+        <Card
+            interactive
+            spotlight
+            className="flex h-full cursor-pointer flex-col"
+            role="link"
+            tabIndex={0}
+            aria-label={`Abrir ${item.name}`}
+            onClick={() => navigate(`/media/${item.id}`)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/media/${item.id}`); } }}
+        >
             <div className="relative aspect-[16/10] overflow-hidden">
                 {hasCover ? (
                     <img
-                        src={item.image}
+                        src={coverUrl}
                         alt={item.name}
                         loading="lazy"
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
@@ -113,9 +124,9 @@ function MediaCard({ item, onManage }) {
                             </p>
                         )
                     ) : (
-                        <Button variant="secondary" className="w-full" onClick={() => onManage(item)}>
-                            Gerenciar Temporadas ({item.seasons?.length || 0})
-                        </Button>
+                        <p className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-medium text-muted-foreground">
+                            {item.seasons?.length || 0} {(item.seasons?.length || 0) === 1 ? 'temporada' : 'temporadas'} · clique para gerenciar
+                        </p>
                     )}
                 </div>
             </div>
@@ -125,12 +136,9 @@ function MediaCard({ item, onManage }) {
 
 export default function Dashboard() {
     const { user, logout } = useContext(AuthContext);
+    const navigate = useNavigate();
     const [mediaList, setMediaList] = useState([]);
     const [loading, setLoading] = useState(true);
-
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [managingMedia, setManagingMedia] = useState(null);
-    const [isManageModalOpen, setIsManageModalOpen] = useState(false);
 
     const fetchMedia = () => {
         api.get('/media')
@@ -148,16 +156,7 @@ export default function Dashboard() {
         fetchMedia();
     }, []);
 
-    const activeMedia = managingMedia
-        ? mediaList.find((m) => m.id === managingMedia.id) ?? managingMedia
-        : null;
-
-    const openManage = (item) => {
-        setManagingMedia(item);
-        setIsManageModalOpen(true);
-    };
-
-    const closeManage = () => setIsManageModalOpen(false);
+    const goCreate = () => navigate('/novo');
 
     return (
         <div className="min-h-screen">
@@ -191,7 +190,7 @@ export default function Dashboard() {
                     title={`Olá, ${user?.username}`}
                     description="Gerencie seus filmes, séries e animes em um só lugar."
                     actions={
-                        <MetalButton onClick={() => setIsCreateModalOpen(true)}>
+                        <MetalButton onClick={goCreate}>
                             <IconPlus className="h-4 w-4" /> Adicionar Item
                         </MetalButton>
                     }
@@ -215,7 +214,7 @@ export default function Dashboard() {
                             title="Sua lista está vazia"
                             description="Adicione seu primeiro filme, série ou anime para começar a construir sua coleção."
                             action={
-                                <MetalButton onClick={() => setIsCreateModalOpen(true)}>
+                                <MetalButton onClick={goCreate}>
                                     <IconPlus className="h-4 w-4" /> Adicionar item
                                 </MetalButton>
                             }
@@ -232,7 +231,7 @@ export default function Dashboard() {
                                         exit={{ opacity: 0, scale: 0.96 }}
                                         transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.4), ease: [0.22, 1, 0.36, 1] }}
                                     >
-                                        <MediaCard item={item} onManage={openManage} />
+                                        <MediaCard item={item} />
                                     </motion.div>
                                 ))}
                             </AnimatePresence>
@@ -240,19 +239,6 @@ export default function Dashboard() {
                     )}
                 </div>
             </main>
-
-            {/* Modais */}
-            <CreateMediaModal
-                open={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
-                onSuccess={fetchMedia}
-            />
-            <ManageSeasonsModal
-                open={isManageModalOpen}
-                media={activeMedia}
-                onClose={closeManage}
-                onSuccess={fetchMedia}
-            />
         </div>
     );
 }
