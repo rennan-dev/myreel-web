@@ -25,6 +25,22 @@ export function IconX({ className }) {
   );
 }
 
+export function IconPencil({ className }) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    </svg>
+  );
+}
+
+export function IconTrash({ className }) {
+  return (
+    <svg {...svgProps} className={className}>
+      <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+    </svg>
+  );
+}
+
 export function IconCheck({ className }) {
   return (
     <svg {...svgProps} className={className}>
