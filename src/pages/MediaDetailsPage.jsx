@@ -36,7 +36,7 @@ export default function MediaDetailsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [editing, setEditing] = useState(false);
-    const goBack = () => navigate(-1);
+    const goBack = () => navigate('/');
     useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -143,7 +143,7 @@ export default function MediaDetailsPage() {
             {item.type !== 'filme' && (
                 <div className="mt-6">
                     <h2 className="mb-3 text-lg font-bold text-foreground">Temporadas e episódios</h2>
-                    <SeasonsSection media={item} onChanged={fetchItem} editable={false} />
+                    <SeasonsSection media={item} onChanged={fetchItem} episodesClickable />
                 </div>
             )}
                 </>
@@ -224,7 +224,7 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
             const season = seasonsById.get(String(seasonId));
             if (!season) continue;
             const total = Number.parseInt(raw, 10);
-            if (!Number.isInteger(total) || total < 1 || total > 500) continue;
+            if (!Number.isInteger(total) || total < 1 || total > 50) continue;
             const existing = new Set((season.episodes ?? []).map((ep) => Number(ep.episode_number)));
             for (let n = 1; n <= total; n += 1) {
                 if (existing.has(n)) continue;
@@ -388,6 +388,7 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
                         media={item}
                         onChanged={onChanged}
                         editable
+                        hideEpisodes
                         onSeasonDraftsChange={setSeasonDrafts}
                     />
                 </div>

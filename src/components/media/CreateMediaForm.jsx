@@ -83,7 +83,9 @@ export function CreateMediaForm({ onCancel, onCreated }) {
             const res = await api.post('/media', payload);
             const created = res?.data?.data;
             if (onCreated) onCreated(created);
-            navigate(created?.id ? `/media/${created.id}` : '/');
+            // replace: true remove "/novo" do histórico, então o botão de voltar
+            // da página de detalhes não retorna ao formulário de criação.
+            navigate(created?.id ? `/media/${created.id}` : '/', { replace: true });
         } catch (error) {
             const errs = error.response?.data?.errors;
             const msg = errs ? Object.values(errs).flat().join(' ') : error.response?.data?.message;
@@ -148,9 +150,6 @@ export function CreateMediaForm({ onCancel, onCreated }) {
                         </div>
                     )}
                 </div>
-            )}
-            {(formData.type === 'serie' || formData.type === 'anime') && (
-                <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-muted-foreground">Após salvar, você informa o número de temporadas e episódios na página do item.</p>
             )}
             {submitError && (
                 <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{submitError}</p>
