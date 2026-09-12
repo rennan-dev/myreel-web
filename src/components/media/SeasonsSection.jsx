@@ -5,7 +5,8 @@ import { Label } from '../ui/Label';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/Badge';
 import { Card } from '../ui/Card';
-import { IconPlus, IconCheck, IconPlay, IconCalendar, IconTrash } from '../ui/icons';
+import { Modal } from '../ui/Modal';
+import { IconPlus, IconCheck, IconPlay, IconCalendar, IconTrash, IconPencil } from '../ui/icons';
 
 function formatDate(value) {
     if (!value) return null;
@@ -18,12 +19,15 @@ function formatDate(value) {
  * Gerenciador de temporadas/episódios reutilizável:
  * usado na página de detalhes e no modal legado.
  */
-export function SeasonsSection({ media, onChanged, editable = false }) {
+export function SeasonsSection({ media, onChanged, editable = false, onSeasonDraftsChange }) {
     const [seasonCount, setSeasonCount] = useState('');
     const [episodeCounts, setEpisodeCounts] = useState({});
     const [seasonDates, setSeasonDates] = useState({});
     const [busy, setBusy] = useState({});
     const [formError, setFormError] = useState('');
+    const [renamingSeason, setRenamingSeason] = useState(null);
+    const [renameValue, setRenameValue] = useState('');
+    const [renaming, setRenaming] = useState(false);
 
     const seasons = [...(media?.seasons ?? [])].sort(
         (a, b) => Number(a.season_number) - Number(b.season_number)
@@ -35,6 +39,20 @@ export function SeasonsSection({ media, onChanged, editable = false }) {
     const totalEpisodes = seasons.reduce((acc, s) => acc + (s.episodes?.length || 0), 0);
 
     const setBusyKey = (key, value) => setBusy((prev) => ({ ...prev, [key]: value }));
+
+    // As datas e a quantidade de episódios são apenas rascunhos aqui:
+    // o formulário pai persiste tudo quando o usuário clica em "Salvar".
+    const handleSeasonDateChange = (seasonId, value) => {
+        const nextDates = { ...seasonDates, [seasonId]: value };
+        setSeasonDates(nextDates);
+        onSeasonDraftsChange?.({ releaseDates: nextDates, episodeCounts });
+    };
+
+    const handleEpisodeCountChange = (seasonId, value) => {
+        const nextCounts = { ...episodeCounts, [seasonId]: value };
+        setEpisodeCounts(nextCounts);
+        onSeasonDraftsChange?.({ releaseDates: seasonDates, episodeCounts: nextCounts });
+    };
 
     const handleBulkSeasons = async (e) => {
         e.preventDefault();
@@ -57,49 +75,6 @@ export function SeasonsSection({ media, onChanged, editable = false }) {
             setFormError('Erro ao criar temporadas.');
         } finally {
             setBusyKey('bulk', false);
-        }
-    };
-
-    const handleBulkEpisodes = async (seasonId, e) => {
-        e.preventDefault();
-        if (!editable) return;
-        setFormError('');
-        const total = Number.parseInt(episodeCounts[seasonId], 10);
-        if (!Number.isInteger(total) || total < 1 || total > 500) {
-            setFormError('Informe um número de episódios entre 1 e 500.');
-            return;
-        }
-        const season = seasons.find((s) => s.id === seasonId);
-        const existing = new Set((season?.episodes ?? []).map((ep) => Number(ep.episode_number)));
-        setBusyKey(`eps-${seasonId}`, true);
-        try {
-            for (let n = 1; n <= total; n += 1) {
-                if (existing.has(n)) continue;
-                await api.post(`/seasons/${seasonId}/episodes`, { episode_number: n, is_watched: false });
-            }
-            setEpisodeCounts((prev) => ({ ...prev, [seasonId]: '' }));
-            await onChanged?.();
-        } catch {
-            setFormError('Erro ao criar episódios.');
-        } finally {
-            setBusyKey(`eps-${seasonId}`, false);
-        }
-    };
-
-    const handleSeasonDate = async (season) => {
-        if (!editable) return;
-        setFormError('');
-        const draft = seasonDates[season.id];
-        const current = season.release_date ? String(season.release_date).slice(0, 10) : '';
-        const value = draft ?? current;
-        setBusyKey(`date-${season.id}`, true);
-        try {
-            await api.patch(`/seasons/${season.id}`, { release_date: value === '' ? null : value });
-            await onChanged?.();
-        } catch {
-            setFormError('Erro ao salvar data da temporada.');
-        } finally {
-            setBusyKey(`date-${season.id}`, false);
         }
     };
 
@@ -134,18 +109,42 @@ export function SeasonsSection({ media, onChanged, editable = false }) {
         }
     };
 
+    const openRenameModal = (season) => {
+        setRenamingSeason(season);
+        setRenameValue(season.title ?? '');
+    };
+
+    const handleRenameSeason = async (e) => {
+        e.preventDefault();
+        if (!renamingSeason) return;
+        setFormError('');
+        setRenaming(true);
+        try {
+            const title = renameValue.trim();
+            await api.patch(`/seasons/${renamingSeason.id}`, { title: title === '' ? null : title });
+            setRenamingSeason(null);
+            await onChanged?.();
+        } catch {
+            setFormError('Erro ao renomear a temporada.');
+        } finally {
+            setRenaming(false);
+        }
+    };
+
     return (
         <div>
             {editable && (
-            <form onSubmit={handleBulkSeasons} className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="flex-1">
-                    <Label htmlFor="season-count">Número de temporadas</Label>
-                    <Input id="season-count" type="number" min="1" max="100" step="1" placeholder="Ex.: 3" required value={seasonCount} onChange={(e) => setSeasonCount(e.target.value)} />
-                    <p className="mt-1 text-xs text-muted-foreground">As temporadas 1 até N aparecem automaticamente.</p>
+            <form onSubmit={handleBulkSeasons} className="mb-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div className="flex-1">
+                        <Label htmlFor="season-count">Número de temporadas</Label>
+                        <Input id="season-count" type="number" min="1" max="100" step="1" placeholder="Ex.: 3" required value={seasonCount} onChange={(e) => setSeasonCount(e.target.value)} />
+                    </div>
+                    <Button type="submit" disabled={Boolean(busy.bulk)}>
+                        <IconPlus className="h-4 w-4" /> {busy.bulk ? 'Criando...' : 'Gerar temporadas'}
+                    </Button>
                 </div>
-                <Button type="submit" disabled={Boolean(busy.bulk)}>
-                    <IconPlus className="h-4 w-4" /> {busy.bulk ? 'Criando...' : 'Gerar temporadas'}
-                </Button>
+                <p className="mt-1 text-xs text-muted-foreground">As temporadas 1 até N aparecem automaticamente.</p>
             </form>
             )}
             {formError && (
@@ -162,28 +161,70 @@ export function SeasonsSection({ media, onChanged, editable = false }) {
                         busy={busy}
                         editable={editable}
                         episodeCountValue={episodeCounts[season.id] ?? ''}
-                        onDateChange={(v) => setSeasonDates((prev) => ({ ...prev, [season.id]: v }))}
-                        onSaveDate={() => handleSeasonDate(season)}
+                        onDateChange={(v) => handleSeasonDateChange(season.id, v)}
+                        onEpisodeCountChange={(v) => handleEpisodeCountChange(season.id, v)}
                         onToggleEpisode={handleToggleEpisode}
                         onDeleteSeason={() => handleDeleteSeason(season)}
-                        onEpisodeCountChange={(v) => setEpisodeCounts((prev) => ({ ...prev, [season.id]: v }))}
-                        onBulkEpisodes={(e) => handleBulkEpisodes(season.id, e)}
+                        onRenameSeason={() => openRenameModal(season)}
                     />
                 ))}
                 {seasons.length === 0 && (
                     <p className="rounded-xl border border-dashed border-white/12 bg-white/[0.02] px-4 py-8 text-center text-sm text-muted-foreground">{editable ? 'Nenhuma temporada cadastrada ainda. Informe o número acima para gerar.' : 'Nenhuma temporada cadastrada ainda.'}</p>
                 )}
             </div>
+
+            <Modal
+                open={Boolean(renamingSeason)}
+                onClose={() => { if (!renaming) setRenamingSeason(null); }}
+                title="Renomear temporada"
+                description={renamingSeason ? `Temporada ${renamingSeason.season_number}` : ''}
+            >
+                <form onSubmit={handleRenameSeason} className="flex flex-col gap-4">
+                    <div>
+                        <Label htmlFor="season-rename">Título da temporada</Label>
+                        <Input
+                            id="season-rename"
+                            type="text"
+                            maxLength={255}
+                            placeholder={`Temporada ${renamingSeason?.season_number ?? ''}`}
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                        />
+                        <p className="mt-1 text-xs text-muted-foreground">Deixe vazio para voltar a exibir "Temporada N".</p>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <Button type="button" variant="ghost" disabled={renaming} onClick={() => setRenamingSeason(null)}>
+                            Cancelar
+                        </Button>
+                        <Button type="submit" disabled={renaming}>
+                            {renaming ? 'Salvando...' : 'Salvar'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 }
 
-function SeasonCard({ season, busy, editable, episodeCountValue, onDateChange, onSaveDate, onToggleEpisode, onEpisodeCountChange, onBulkEpisodes, onDeleteSeason }) {
+function SeasonCard({ season, busy, editable, episodeCountValue, onDateChange, onEpisodeCountChange, onToggleEpisode, onDeleteSeason, onRenameSeason }) {
     const sortedEps = [...(season.episodes ?? [])].sort((a, b) => Number(a.episode_number) - Number(b.episode_number));
     return (
         <Card className="p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-                <h3 className="font-semibold text-foreground">Temporada {season.season_number}</h3>
+                <div className="flex min-w-0 items-center gap-1.5">
+                    <h3 className="truncate font-semibold text-foreground">{season.title ? season.title : `Temporada ${season.season_number}`}</h3>
+                    {editable && (
+                        <button
+                            type="button"
+                            aria-label={`Renomear temporada ${season.season_number}`}
+                            title="Renomear temporada"
+                            onClick={onRenameSeason}
+                            className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/10 text-muted-foreground transition-colors hover:border-purple-500/40 hover:text-foreground"
+                        >
+                            <IconPencil className="h-3 w-3" />
+                        </button>
+                    )}
+                </div>
                 <div className="flex items-center gap-2">
                     <Badge variant="neutral">{season.episodes?.length || 0} epis</Badge>
                     {editable && (
@@ -201,17 +242,13 @@ function SeasonCard({ season, busy, editable, episodeCountValue, onDateChange, o
             </div>
 
             {editable ? (
-                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-                    <div className="flex-1">
-                        <Label htmlFor={`season-date-${season.id}`}>Data de lançamento</Label>
-                        <Input id={`season-date-${season.id}`} type="date" defaultValue={season.release_date ? String(season.release_date).slice(0, 10) : ''} onChange={(e) => onDateChange(e.target.value)} />
-                        {season.release_date && (
-                            <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground"><IconCalendar className="h-3 w-3" /> {formatDate(season.release_date)}</p>
-                        )}
-                    </div>
-                    <Button type="button" variant="secondary" size="sm" disabled={Boolean(busy[`date-${season.id}`])} onClick={onSaveDate}>
-                        {busy[`date-${season.id}`] ? 'Salvando...' : 'Salvar data'}
-                    </Button>
+                <div className="mb-3">
+                    <Label htmlFor={`season-date-${season.id}`}>Data de lançamento</Label>
+                    <Input id={`season-date-${season.id}`} type="date" defaultValue={season.release_date ? String(season.release_date).slice(0, 10) : ''} onChange={(e) => onDateChange(e.target.value)} />
+                    {season.release_date && (
+                        <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground"><IconCalendar className="h-3 w-3" /> {formatDate(season.release_date)}</p>
+                    )}
+                    <p className="mt-1 text-xs text-muted-foreground">A data é salva automaticamente ao clicar em "Salvar".</p>
                 </div>
             ) : (
                 season.release_date && (
@@ -249,16 +286,11 @@ function SeasonCard({ season, busy, editable, episodeCountValue, onDateChange, o
             </div>
 
             {editable && (
-                <form onSubmit={onBulkEpisodes} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                    <div className="flex-1">
-                        <Label htmlFor={`eps-count-${season.id}`}>Número de episódios</Label>
-                        <Input id={`eps-count-${season.id}`} type="number" min="1" max="500" step="1" placeholder="Ex.: 10" required value={episodeCountValue} onChange={(e) => onEpisodeCountChange(e.target.value)} />
-                        <p className="mt-1 text-xs text-muted-foreground">Os episódios 1 até N aparecem automaticamente.</p>
-                    </div>
-                    <Button type="submit" variant="secondary" size="sm" disabled={Boolean(busy[`eps-${season.id}`])}>
-                        <IconPlus className="h-3.5 w-3.5" /> {busy[`eps-${season.id}`] ? 'Gerando...' : 'Gerar episódios'}
-                    </Button>
-                </form>
+                <div>
+                    <Label htmlFor={`eps-count-${season.id}`}>Número de episódios</Label>
+                    <Input id={`eps-count-${season.id}`} type="number" min="1" max="500" step="1" placeholder="Ex.: 10" value={episodeCountValue} onChange={(e) => onEpisodeCountChange(e.target.value)} />
+                    <p className="mt-1 text-xs text-muted-foreground">Os episódios 1 até N são gerados automaticamente ao clicar em "Salvar".</p>
+                </div>
             )}
         </Card>
     );

@@ -10,7 +10,7 @@ import { Badge } from '../components/ui/Badge';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingState } from '../components/ui/LoadingState';
-import { resolveCoverUrl } from '../lib/utils';
+import { CoverImage } from '../components/media/CoverImage';
 import {
     IconReel, IconFilm, IconTv, IconSpark, IconStar, IconCalendar, IconCheck, IconLogOut, IconPlus,
 } from '../components/ui/icons';
@@ -52,8 +52,6 @@ function MediaCard({ item }) {
     const TypeIcon = meta.Icon;
     const isFilm = item.type === 'filme';
     const isWatched = Boolean(item.is_watched);
-    const coverUrl = resolveCoverUrl(item);
-    const hasCover = Boolean(coverUrl);
     const rating = Number(item.rating);
 
     return (
@@ -67,22 +65,20 @@ function MediaCard({ item }) {
             onClick={() => navigate(`/media/${item.id}`)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/media/${item.id}`); } }}
         >
-            <div className="relative aspect-[16/10] overflow-hidden">
-                {hasCover ? (
-                    <img
-                        src={coverUrl}
-                        alt={item.name}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                    />
-                ) : (
-                    <div className="relative flex h-full w-full items-center justify-center bg-gradient-to-br from-[#1c1330] via-[#151020] to-[#0c0a14]">
+            <CoverImage
+                item={item}
+                alt={item.name}
+                aspect="aspect-[2/3]"
+                className="w-full"
+                fallback={(
+                    <div className="relative flex h-full w-full items-center justify-center">
                         <span className="text-3xl font-extrabold tracking-wide text-white/20">
                             {getInitials(item.name)}
                         </span>
                         <TypeIcon className="absolute h-10 w-10 text-white/10" />
                     </div>
                 )}
+            >
                 <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" aria-hidden />
                 <div className="absolute left-3 top-3">
                     <Badge variant={meta.badge}>{meta.label}</Badge>
@@ -92,7 +88,7 @@ function MediaCard({ item }) {
                         <Badge variant="watched"><IconCheck className="h-3 w-3" /> Assistido</Badge>
                     </div>
                 )}
-            </div>
+            </CoverImage>
 
             <div className="flex flex-1 flex-col gap-3 p-5">
                 <div className="flex items-start justify-between gap-3">
