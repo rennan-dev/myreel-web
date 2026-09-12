@@ -70,5 +70,5 @@ jobs:
           server-dir: ${{ secrets.HOSTINGER_FTP_DIR || 'public_html/' }}
           # false = só sincroniza/sobrescreve arquivos, não apaga o resto
           # (protege qualquer arquivo extra que exista no public_html)
-          dangerous-clean-swords: false
+          dangerous-clean-slate: false
           dry-run: false
