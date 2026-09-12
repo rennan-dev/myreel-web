@@ -1,0 +1,74 @@
+name: Deploy Frontend (myreel-web)
+
+on:
+  push:
+    branches:
+      - main
+  # Permite rodar manualmente pela aba Actions
+  workflow_dispatch:
+
+# Evita dois deploys simultâneos brigando pelos mesmos arquivos na Hostinger
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & Deploy (Hostinger)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # As variáveis do Vite são embutidas no build, por isso o .env é
+      # criado ANTES do npm run build, a partir dos secrets do GitHub.
+      - name: Criar .env de produção
+        run: |
+          printf 'VITE_API_URL=%s\nVITE_APP_URL=%s\n' \
+            "${{ secrets.VITE_API_URL }}" \
+            "${{ secrets.VITE_APP_URL }}" > .env
+          echo "Variables configuradas: VITE_API_URL, VITE_APP_URL"
+
+      - name: Build (npm run build)
+        run: npm run build
+
+      - name: Verificar resultado do build
+        run: |
+          if [ ! -f dist/index.html ]; then
+            echo "::error::dist/index.html não foi gerado — o build falhou ou está incompleto."
+            exit 1
+          fi
+          echo "dist/index.html OK — pronto para deploy."
+
+      # O deploy SÓ acontece se todos os passos acima (incluindo o build)
+      # terminarem com sucesso. Se o build falhar, o job é abortado aqui.
+      - name: Enviar dist/ para a Hostinger (FTPS)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.HOSTINGER_FTP_HOST }}
+          username: ${{ secrets.HOSTINGER_FTP_USER }}
+          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          port: ${{ secrets.HOSTINGER_FTP_PORT || 21 }}
+          protocol: ftps
+          # Envia o CONTEÚDO de dist/ (index.html, assets/, .htaccess...)
+          local-dir: dist/
+          # Pasta no servidor onde o site fica (raiz do FTP + public_html)
+          server-dir: ${{ secrets.HOSTINGER_FTP_DIR || 'public_html/' }}
+          # false = só sincroniza/sobrescreve arquivos, não apaga o resto
+          # (protege qualquer arquivo extra que exista no public_html)
+          dangerous-clean-swords: false
+          dry-run: false
