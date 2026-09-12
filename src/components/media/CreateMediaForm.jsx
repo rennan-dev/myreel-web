@@ -7,6 +7,7 @@ import { Textarea } from '../ui/Textarea';
 import { Checkbox } from '../ui/Checkbox';
 import { Button } from '../ui/button';
 import { IconFilm, IconTv, IconSpark } from '../ui/icons';
+import { CoverEditor } from './CoverEditor';
 import { cn } from '../../lib/utils';
 
 const INITIAL_FORM = { type: 'filme', name: '', rating: '', description: '', release_date: '', is_watched: false, watched_at: '' };
@@ -23,6 +24,7 @@ export function CreateMediaForm({ onCancel, onCreated }) {
     const [formData, setFormData] = useState(INITIAL_FORM);
     const [coverFile, setCoverFile] = useState(null);
     const [coverPreview, setCoverPreview] = useState('');
+    const [coverValue, setCoverValue] = useState({ x: 0, y: 0, scale: 1 });
     const [fileError, setFileError] = useState('');
     const fileInputRef = useRef(null);
     const [submitting, setSubmitting] = useState(false);
@@ -72,7 +74,12 @@ export function CreateMediaForm({ onCancel, onCreated }) {
                 payload.append('is_watched', formData.is_watched ? '1' : '0');
                 if (formData.is_watched && formData.watched_at) payload.append('watched_at', formData.watched_at);
             }
-            if (coverFile) payload.append('image', coverFile);
+            if (coverFile) {
+                payload.append('image', coverFile);
+                payload.append('cover_x', String(coverValue.x));
+                payload.append('cover_y', String(coverValue.y));
+                payload.append('cover_scale', String(coverValue.scale));
+            }
             const res = await api.post('/media', payload);
             const created = res?.data?.data;
             if (onCreated) onCreated(created);
@@ -110,19 +117,21 @@ export function CreateMediaForm({ onCancel, onCreated }) {
                 <p className="mt-1 text-xs text-muted-foreground">Apenas imagens (JPG, PNG, WEBP ou GIF) de até 4MB.</p>
                 {fileError && (<p role="alert" className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{fileError}</p>)}
                 {coverPreview && (
-                    <div className="mt-3 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                        <img src={coverPreview} alt="Prévia da capa" className="h-20 w-14 shrink-0 rounded-lg object-cover" />
-                        <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-foreground">{coverFile?.name}</p>
-                            <p className="text-xs text-muted-foreground">{coverFile ? `${(coverFile.size / 1024 / 1024).toFixed(2)} MB` : ''}</p>
+                    <div className="mt-3 flex flex-col gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:flex-row">
+                        <CoverEditor src={coverPreview} value={coverValue} onChange={setCoverValue} />
+                        <div className="flex flex-1 flex-col justify-between gap-3">
+                            <div>
+                                <p className="truncate text-sm font-medium text-foreground">{coverFile?.name}</p>
+                                <p className="text-xs text-muted-foreground">{coverFile ? `${(coverFile.size / 1024 / 1024).toFixed(2)} MB` : ''}</p>
+                            </div>
+                            <Button type="button" variant="ghost" onClick={resetFile}>Remover</Button>
                         </div>
-                        <Button type="button" variant="ghost" onClick={resetFile}>Remover</Button>
                     </div>
                 )}
             </div>
             <div>
                 <Label htmlFor="cm-desc">Descrição</Label>
-                <Textarea id="cm-desc" placeholder="Uma breve sinopse..." value={formData.description} onChange={(e) => set('description', e.target.value)} />
+                <Textarea id="cm-desc" placeholder="Uma breve sinopse..." className="h-36 resize-none overflow-y-auto" value={formData.description} onChange={(e) => set('description', e.target.value)} />
             </div>
             {formData.type === 'filme' && (
                 <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">

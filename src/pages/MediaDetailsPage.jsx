@@ -6,6 +6,8 @@ import { Badge } from '../components/ui/Badge';
 import { LoadingState } from '../components/ui/LoadingState';
 import { EmptyState } from '../components/ui/EmptyState';
 import { SeasonsSection } from '../components/media/SeasonsSection';
+import { CoverImage } from '../components/media/CoverImage';
+import { CoverEditor } from '../components/media/CoverEditor';
 import { resolveCoverUrl } from '../lib/utils';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
@@ -52,8 +54,9 @@ export default function MediaDetailsPage() {
         })();
         return () => { cancelled = true; };
     }, [id]);
+    // Atualização silenciosa: não ativa o loading global para a página
+    // (e o modo de edição) permanecer montada, preservando rascunhos locais.
     const fetchItem = async () => {
-        setLoading(true);
         try {
             const res = await api.get(`/media/${id}`);
             setItem(res.data);
@@ -81,7 +84,6 @@ export default function MediaDetailsPage() {
     }
     const meta = TYPE_META[item.type] || TYPE_META.filme;
     const TypeIcon = meta.Icon;
-    const coverUrl = resolveCoverUrl(item);
     const rating = Number(item.rating);
     const seasons = item.seasons ?? [];
     const watchedEps = seasons.reduce((a, s) => a + (s.episodes?.filter((e) => e.is_watched).length || 0), 0);
@@ -108,15 +110,16 @@ export default function MediaDetailsPage() {
                 <>
             <Card className="overflow-hidden">
                 <div className="grid gap-0 md:grid-cols-[280px_1fr]">
-                    <div className="relative min-h-56 bg-gradient-to-br from-[#1c1330] via-[#151020] to-[#0c0a14]">
-                        {coverUrl ? (
-                            <img src={coverUrl} alt={item.name} className="h-full w-full object-cover" />
-                        ) : (
-                            <div className="flex h-full min-h-56 items-center justify-center">
+                    <CoverImage
+                        item={item}
+                        alt={item.name}
+                        aspect="aspect-[2/3]"
+                        fallback={(
+                            <div className="flex h-full items-center justify-center">
                                 <TypeIcon className="h-12 w-12 text-white/10" />
                             </div>
                         )}
-                    </div>
+                    />
                     <div className="p-5 sm:p-7">
                         <div className="flex flex-wrap items-center gap-2">
                             <Badge variant={meta.badge}><TypeIcon className="h-3.5 w-3.5" />{meta.label}</Badge>
@@ -128,7 +131,7 @@ export default function MediaDetailsPage() {
                             )}
                         </div>
                         <h1 className="mt-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{item.name}</h1>
-                        {item.description && (<p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.description}</p>)}
+                        {item.description && (<p className="mt-2 max-h-40 overflow-y-auto text-sm leading-relaxed text-muted-foreground">{item.description}</p>)}
                         {item.type === 'filme' ? (
                             <FilmMeta item={item} />
                         ) : (
@@ -166,6 +169,14 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [formError, setFormError] = useState('');
+    // Rascunhos das temporadas (datas e qtde de episódios): aplicados ao clicar em "Salvar".
+    const [seasonDrafts, setSeasonDrafts] = useState({ releaseDates: {}, episodeCounts: {} });
+    // Enquadramento da capa (posição % + zoom) ajustado no editor e salvo junto.
+    const [coverValue, setCoverValue] = useState({
+        x: Number(item.cover_x) || 0,
+        y: Number(item.cover_y) || 0,
+        scale: Number(item.cover_scale) || 1,
+    });
 
     const handleFileChange = (e) => {
         const selected = e.target.files?.[0];
@@ -194,6 +205,34 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
         setPreview(null);
     };
 
+    // Aplica os rascunhos das temporadas: grava as datas informadas e
+    // cria os episódios 1 até N que ainda não existem em cada temporada.
+    const applySeasonDrafts = async () => {
+        const seasonsById = new Map((item.seasons ?? []).map((s) => [String(s.id), s]));
+
+        const releaseDates = seasonDrafts.releaseDates ?? {};
+        for (const [seasonId, value] of Object.entries(releaseDates)) {
+            const season = seasonsById.get(String(seasonId));
+            if (!season) continue; // temporada foi excluída durante a edição
+            const current = season.release_date ? String(season.release_date).slice(0, 10) : '';
+            if (value === current) continue;
+            await api.patch(`/seasons/${seasonId}`, { release_date: value === '' ? null : value });
+        }
+
+        const counts = seasonDrafts.episodeCounts ?? {};
+        for (const [seasonId, raw] of Object.entries(counts)) {
+            const season = seasonsById.get(String(seasonId));
+            if (!season) continue;
+            const total = Number.parseInt(raw, 10);
+            if (!Number.isInteger(total) || total < 1 || total > 500) continue;
+            const existing = new Set((season.episodes ?? []).map((ep) => Number(ep.episode_number)));
+            for (let n = 1; n <= total; n += 1) {
+                if (existing.has(n)) continue;
+                await api.post(`/seasons/${seasonId}/episodes`, { episode_number: n, is_watched: false });
+            }
+        }
+    };
+
     const handleSave = async (e) => {
         e.preventDefault();
         setFormError('');
@@ -205,13 +244,34 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
             if (rating) fd.append('rating', rating);
             fd.append('description', description);
             if (file) fd.append('image', file);
+            fd.append('cover_x', String(coverValue.x));
+            fd.append('cover_y', String(coverValue.y));
+            fd.append('cover_scale', String(coverValue.scale));
             if (isFilm) {
                 if (releaseDate) fd.append('release_date', releaseDate);
                 fd.append('is_watched', isWatched ? '1' : '0');
                 if (isWatched) fd.append('watched_at', watchedAt);
             }
-            const res = await api.post(`/media/${item.id}`, fd);
-            onSaved(res.data);
+            await api.post(`/media/${item.id}`, fd);
+
+            // salva as datas e gera os episódios das temporadas
+            let seasonsError = false;
+            try {
+                await applySeasonDrafts();
+            } catch {
+                seasonsError = true;
+            }
+
+            const res = await api.get(`/media/${item.id}`);
+            if (seasonsError) {
+                setSeasonDrafts({ releaseDates: {}, episodeCounts: {} });
+                setFormError('O item foi salvo, mas ocorreu um erro ao salvar os dados das temporadas.');
+                onChanged();
+                setSaving(false);
+            } else {
+                setSeasonDrafts({ releaseDates: {}, episodeCounts: {} });
+                onSaved(res.data);
+            }
         } catch (err) {
             setFormError(err.response?.data?.message || 'Erro ao salvar as alterações.');
             setSaving(false);
@@ -258,23 +318,27 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
                     </div>
                     <div>
                         <Label htmlFor="edit-cover">Capa (imagem do dispositivo)</Label>
-                        {preview ? (
-                            <div className="mb-2 flex items-center gap-3">
-                                <img src={preview} alt="Prévia da capa" className="h-24 w-16 rounded-lg object-cover" />
-                                <Button type="button" variant="ghost" size="sm" onClick={clearFile}>Remover</Button>
-                            </div>
-                        ) : resolveCoverUrl(item) && (
-                            <div className="mb-2 flex items-center gap-3">
-                                <img src={resolveCoverUrl(item)} alt="Capa atual" className="h-24 w-16 rounded-lg object-cover" />
-                                <p className="text-xs text-muted-foreground">Capa atual — envie um novo arquivo para substituir.</p>
-                            </div>
-                        )}
+                        <CoverEditor
+                            src={preview ?? resolveCoverUrl(item)}
+                            value={coverValue}
+                            onChange={setCoverValue}
+                        />
+                        <div className="mt-2 flex items-center gap-3">
+                            {preview ? (
+                                <>
+                                    <p className="text-xs text-muted-foreground">{file?.name} — nova capa selecionada; salvar substituirá a atual.</p>
+                                    <Button type="button" variant="ghost" size="sm" onClick={clearFile}>Remover</Button>
+                                </>
+                            ) : (
+                                <p className="text-xs text-muted-foreground">Ajuste a posição e o zoom da capa atual; ao salvar, o enquadramento é atualizado. Envie um novo arquivo para substituir.</p>
+                            )}
+                        </div>
                         <input
                             id="edit-cover"
                             type="file"
                             accept="image/jpeg,image/png,image/webp,image/gif"
                             onChange={handleFileChange}
-                            className="w-full cursor-pointer rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-purple-500/20 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-purple-200"
+                            className="mt-3 w-full cursor-pointer rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-purple-500/20 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-purple-200"
                         />
                     </div>
                     <div>
@@ -282,6 +346,7 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
                         <Textarea
                             id="edit-description"
                             placeholder="Uma breve sinopse..."
+                            className="h-36 resize-none overflow-y-auto"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                         />
@@ -319,7 +384,12 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
             {!isFilm && (
                 <div>
                     <h2 className="mb-3 text-lg font-bold text-foreground">Temporadas e episódios</h2>
-                    <SeasonsSection media={item} onChanged={onChanged} editable />
+                    <SeasonsSection
+                        media={item}
+                        onChanged={onChanged}
+                        editable
+                        onSeasonDraftsChange={setSeasonDrafts}
+                    />
                 </div>
             )}
 
