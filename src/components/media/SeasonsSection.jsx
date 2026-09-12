@@ -19,7 +19,7 @@ function formatDate(value) {
  * Gerenciador de temporadas/episódios reutilizável:
  * usado na página de detalhes e no modal legado.
  */
-export function SeasonsSection({ media, onChanged, editable = false, onSeasonDraftsChange }) {
+export function SeasonsSection({ media, onChanged, editable = false, episodesClickable = false, hideEpisodes = false, onSeasonDraftsChange }) {
     const [seasonCount, setSeasonCount] = useState('');
     const [episodeCounts, setEpisodeCounts] = useState({});
     const [seasonDates, setSeasonDates] = useState({});
@@ -58,8 +58,8 @@ export function SeasonsSection({ media, onChanged, editable = false, onSeasonDra
         e.preventDefault();
         setFormError('');
         const total = Number.parseInt(seasonCount, 10);
-        if (!Number.isInteger(total) || total < 1 || total > 100) {
-            setFormError('Informe um número de temporadas entre 1 e 100.');
+        if (!Number.isInteger(total) || total < 1 || total > 30) {
+            setFormError('Informe um número de temporadas entre 1 e 30.');
             return;
         }
         const existing = new Set(seasons.map((s) => Number(s.season_number)));
@@ -71,15 +71,16 @@ export function SeasonsSection({ media, onChanged, editable = false, onSeasonDra
             }
             setSeasonCount('');
             await onChanged?.();
-        } catch {
-            setFormError('Erro ao criar temporadas.');
+        } catch (error) {
+            // exibe o motivo retornado pela API (ex.: limite de 30 temporadas atingido)
+            setFormError(error.response?.data?.message || 'Erro ao criar temporadas.');
         } finally {
             setBusyKey('bulk', false);
         }
     };
 
     const handleToggleEpisode = async (episode) => {
-        if (!editable) return;
+        if (!editable && !episodesClickable) return;
         setFormError('');
         const key = `ep-${episode.id}`;
         setBusyKey(key, true);
@@ -138,7 +139,7 @@ export function SeasonsSection({ media, onChanged, editable = false, onSeasonDra
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                     <div className="flex-1">
                         <Label htmlFor="season-count">Número de temporadas</Label>
-                        <Input id="season-count" type="number" min="1" max="100" step="1" placeholder="Ex.: 3" required value={seasonCount} onChange={(e) => setSeasonCount(e.target.value)} />
+                        <Input id="season-count" type="number" min="1" max="30" step="1" placeholder="Ex.: 3" required value={seasonCount} onChange={(e) => setSeasonCount(e.target.value)} />
                     </div>
                     <Button type="submit" disabled={Boolean(busy.bulk)}>
                         <IconPlus className="h-4 w-4" /> {busy.bulk ? 'Criando...' : 'Gerar temporadas'}
@@ -160,6 +161,8 @@ export function SeasonsSection({ media, onChanged, editable = false, onSeasonDra
                         season={season}
                         busy={busy}
                         editable={editable}
+                        episodesClickable={episodesClickable}
+                        hideEpisodes={hideEpisodes}
                         episodeCountValue={episodeCounts[season.id] ?? ''}
                         onDateChange={(v) => handleSeasonDateChange(season.id, v)}
                         onEpisodeCountChange={(v) => handleEpisodeCountChange(season.id, v)}
@@ -206,7 +209,8 @@ export function SeasonsSection({ media, onChanged, editable = false, onSeasonDra
     );
 }
 
-function SeasonCard({ season, busy, editable, episodeCountValue, onDateChange, onEpisodeCountChange, onToggleEpisode, onDeleteSeason, onRenameSeason }) {
+function SeasonCard({ season, busy, editable, episodesClickable, hideEpisodes, episodeCountValue, onDateChange, onEpisodeCountChange, onToggleEpisode, onDeleteSeason, onRenameSeason }) {
+    const canToggleEpisode = Boolean(editable || episodesClickable);
     const sortedEps = [...(season.episodes ?? [])].sort((a, b) => Number(a.episode_number) - Number(b.episode_number));
     return (
         <Card className="p-4">
@@ -258,37 +262,39 @@ function SeasonCard({ season, busy, editable, episodeCountValue, onDateChange, o
                 )
             )}
 
-            <div className="mb-4 flex flex-wrap gap-2">
-                {sortedEps.map((ep) => (editable ? (
-                    <button
-                        key={ep.id}
-                        type="button"
-                        disabled={Boolean(busy[`ep-${ep.id}`])}
-                        onClick={() => onToggleEpisode(ep)}
-                        title={ep.is_watched ? 'Clique para desmarcar' : 'Clique para marcar como assistido'}
-                        className={ep.is_watched
-                            ? 'inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-purple-400/40 bg-purple-500/15 px-3 py-1 text-xs font-medium text-purple-200 shadow-glow transition-transform hover:scale-105 disabled:opacity-60'
-                            : 'inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-xs font-medium text-muted-foreground transition-transform hover:scale-105 hover:border-purple-500/40 disabled:opacity-60'}
-                    >
-                        {ep.is_watched ? <IconCheck className="h-3 w-3" /> : <IconPlay className="h-3 w-3" />} Ep {ep.episode_number}
-                    </button>
-                ) : (
-                    <span
-                        key={ep.id}
-                        className={ep.is_watched
-                            ? 'inline-flex items-center gap-1.5 rounded-full border border-purple-400/40 bg-purple-500/15 px-3 py-1 text-xs font-medium text-purple-200'
-                            : 'inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-xs font-medium text-muted-foreground'}
-                    >
-                        {ep.is_watched ? <IconCheck className="h-3 w-3" /> : <IconPlay className="h-3 w-3" />} Ep {ep.episode_number}
-                    </span>
-                )))}
-                {sortedEps.length === 0 && (<span className="text-sm text-muted-foreground">Nenhum episódio ainda.</span>)}
-            </div>
+            {!hideEpisodes && (
+                <div className="mb-4 flex flex-wrap gap-2">
+                    {sortedEps.map((ep) => (canToggleEpisode ? (
+                        <button
+                            key={ep.id}
+                            type="button"
+                            disabled={Boolean(busy[`ep-${ep.id}`])}
+                            onClick={() => onToggleEpisode(ep)}
+                            title={ep.is_watched ? 'Clique para desmarcar' : 'Clique para marcar como assistido'}
+                            className={ep.is_watched
+                                ? 'inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-purple-400/40 bg-purple-500/15 px-3 py-1 text-xs font-medium text-purple-200 shadow-glow transition-transform hover:scale-105 disabled:opacity-60'
+                                : 'inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-xs font-medium text-muted-foreground transition-transform hover:scale-105 hover:border-purple-500/40 disabled:opacity-60'}
+                        >
+                            {ep.is_watched ? <IconCheck className="h-3 w-3" /> : <IconPlay className="h-3 w-3" />} Ep {ep.episode_number}
+                        </button>
+                    ) : (
+                        <span
+                            key={ep.id}
+                            className={ep.is_watched
+                                ? 'inline-flex items-center gap-1.5 rounded-full border border-purple-400/40 bg-purple-500/15 px-3 py-1 text-xs font-medium text-purple-200'
+                                : 'inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-xs font-medium text-muted-foreground'}
+                        >
+                            {ep.is_watched ? <IconCheck className="h-3 w-3" /> : <IconPlay className="h-3 w-3" />} Ep {ep.episode_number}
+                        </span>
+                    )))}
+                    {sortedEps.length === 0 && (<span className="text-sm text-muted-foreground">Nenhum episódio ainda.</span>)}
+                </div>
+            )}
 
             {editable && (
                 <div>
                     <Label htmlFor={`eps-count-${season.id}`}>Número de episódios</Label>
-                    <Input id={`eps-count-${season.id}`} type="number" min="1" max="500" step="1" placeholder="Ex.: 10" value={episodeCountValue} onChange={(e) => onEpisodeCountChange(e.target.value)} />
+                    <Input id={`eps-count-${season.id}`} type="number" min="1" max="50" step="1" placeholder="Ex.: 10" value={episodeCountValue} onChange={(e) => onEpisodeCountChange(e.target.value)} />
                     <p className="mt-1 text-xs text-muted-foreground">Os episódios 1 até N são gerados automaticamente ao clicar em "Salvar".</p>
                 </div>
             )}

@@ -113,7 +113,8 @@ export default function Register() {
                         </div>
                         <MetalButton
                             type="submit"
-                            className="mt-2 w-full"
+                            metalFxClassName="w-full"
+                            className="w-full"
                             disabled={submitting}
                             aria-busy={submitting}
                         >

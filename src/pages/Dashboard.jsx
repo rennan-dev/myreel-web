@@ -12,7 +12,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingState } from '../components/ui/LoadingState';
 import { CoverImage } from '../components/media/CoverImage';
 import {
-    IconReel, IconFilm, IconTv, IconSpark, IconStar, IconCalendar, IconCheck, IconLogOut, IconPlus,
+    IconReel, IconFilm, IconTv, IconSpark, IconStar, IconCheck, IconLogOut, IconPlus,
 } from '../components/ui/icons';
 
 const TYPE_META = {
@@ -21,20 +21,19 @@ const TYPE_META = {
     anime: { label: 'Anime', badge: 'emerald', Icon: IconSpark },
 };
 
-function formatDate(value) {
-    if(!value) return null;
-    const d = new Date(value);
-    if(Number.isNaN(d.getTime())) return null;
-    return d.toLocaleDateString('pt-BR');
-}
-
 function getInitials(name) {
     return (name || '').trim().slice(0, 2).toUpperCase() || '••';
 }
 
-function StatCard({ Icon, label, value, accent }) {
+function StatCard({ Icon, label, value, accent, onClick, active = false }) {
+    const clickable = typeof onClick === 'function';
     return (
-        <div className="flex items-center gap-3 rounded-2xl border border-white/8 bg-card/70 p-4 transition-colors duration-300 hover:border-purple-500/30">
+        <button
+            type="button"
+            onClick={clickable ? onClick : undefined}
+            title={clickable ? `Mostrar apenas ${label.toLowerCase()}` : undefined}
+            className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-colors duration-300 ${active ? 'cursor-pointer border-purple-500/50 bg-purple-500/10 shadow-glow' : 'border-white/8 bg-card/70'} ${clickable && !active ? 'cursor-pointer hover:border-purple-500/30' : ''}`}
+        >
             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accent}`}>
                 <Icon className="h-5 w-5" />
             </span>
@@ -42,7 +41,7 @@ function StatCard({ Icon, label, value, accent }) {
                 <p className="text-2xl font-bold leading-none text-foreground">{value}</p>
                 <p className="mt-1 truncate text-xs text-muted-foreground">{label}</p>
             </div>
-        </div>
+        </button>
     );
 }
 
@@ -92,7 +91,7 @@ function MediaCard({ item }) {
 
             <div className="flex flex-1 flex-col gap-3 p-5">
                 <div className="flex items-start justify-between gap-3">
-                    <h3 className="truncate text-lg font-semibold tracking-tight text-foreground" title={item.name}>
+                    <h3 className="truncate text-xl font-semibold tracking-tight text-foreground" title={item.name}>
                         {item.name}
                     </h3>
                     {rating > 0 && (
@@ -105,26 +104,6 @@ function MediaCard({ item }) {
                 {item.description && (
                     <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">{item.description}</p>
                 )}
-
-                <div className="mt-auto pt-2">
-                    {isFilm ? (
-                        isWatched ? (
-                            <p className="inline-flex items-center gap-2 rounded-lg border border-purple-500/25 bg-purple-500/10 px-3 py-2 text-xs font-medium text-purple-200">
-                                <IconCheck className="h-3.5 w-3.5" />
-                                Assistido em {formatDate(item.watched_at) || item.watched_at}
-                            </p>
-                        ) : (
-                            <p className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-medium text-muted-foreground">
-                                <IconCalendar className="h-3.5 w-3.5" />
-                                {formatDate(item.release_date) ? `Lançado em ${formatDate(item.release_date)} · ` : ''}Ainda não assistido
-                            </p>
-                        )
-                    ) : (
-                        <p className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-medium text-muted-foreground">
-                            {item.seasons?.length || 0} {(item.seasons?.length || 0) === 1 ? 'temporada' : 'temporadas'} · clique para gerenciar
-                        </p>
-                    )}
-                </div>
             </div>
         </Card>
     );
@@ -135,6 +114,10 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const [mediaList, setMediaList] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState('todos');
+
+    const toggleFilter = (type) => setFilter((prev) => (prev === type ? 'todos' : type));
+    const filteredList = filter === 'todos' ? mediaList : mediaList.filter((m) => m.type === filter);
 
     const fetchMedia = () => {
         api.get('/media')
@@ -193,22 +176,26 @@ export default function Dashboard() {
                 />
 
                 {!loading && mediaList.length > 0 && (
-                    <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                        <StatCard Icon={IconReel} label="Itens" value={mediaList.length} accent="border-purple-500/30 bg-purple-500/15 text-purple-300" />
-                        <StatCard Icon={IconFilm} label="Filmes" value={mediaList.filter((m) => m.type === 'filme').length} accent="border-sky-500/30 bg-sky-500/15 text-sky-300" />
-                        <StatCard Icon={IconTv} label="Séries" value={mediaList.filter((m) => m.type === 'serie').length} accent="border-emerald-500/30 bg-emerald-500/15 text-emerald-300" />
-                        <StatCard Icon={IconSpark} label="Animes" value={mediaList.filter((m) => m.type === 'anime').length} accent="border-violet-500/30 bg-violet-500/15 text-violet-300" />
-                        <StatCard Icon={IconCheck} label="Episódios vistos" value={mediaList.reduce((acc, m) => acc + (m.seasons?.reduce((a, s) => a + (s.episodes?.filter((ep) => ep.is_watched).length || 0), 0) || 0), 0)} accent="border-fuchsia-500/30 bg-fuchsia-500/15 text-fuchsia-300" />
+                    <div className="mt-8 grid grid-cols-3 gap-3">
+                        <StatCard Icon={IconFilm} label="Filmes" value={mediaList.filter((m) => m.type === 'filme').length} accent="border-sky-500/30 bg-sky-500/15 text-sky-300" onClick={() => toggleFilter('filme')} active={filter === 'filme'} />
+                        <StatCard Icon={IconTv} label="Séries" value={mediaList.filter((m) => m.type === 'serie').length} accent="border-emerald-500/30 bg-emerald-500/15 text-emerald-300" onClick={() => toggleFilter('serie')} active={filter === 'serie'} />
+                        <StatCard Icon={IconSpark} label="Animes" value={mediaList.filter((m) => m.type === 'anime').length} accent="border-violet-500/30 bg-violet-500/15 text-violet-300" onClick={() => toggleFilter('anime')} active={filter === 'anime'} />
                     </div>
+                )}
+
+                {filter !== 'todos' && mediaList.length > 0 && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                        Mostrando apenas {TYPE_META[filter].label.toLowerCase() === 'série' ? 'séries' : `${TYPE_META[filter].label.toLowerCase()}s`} — clique no card novamente para ver tudo.
+                    </p>
                 )}
 
                 <div className="mt-8">
                     {loading ? (
                         <LoadingState label="Carregando sua biblioteca..." />
-                    ) : mediaList.length === 0 ? (
+                    ) : filteredList.length === 0 ? (
                         <EmptyState
-                            title="Sua lista está vazia"
-                            description="Adicione seu primeiro filme, série ou anime para começar a construir sua coleção."
+                            title={mediaList.length === 0 ? 'Sua lista está vazia' : 'Nada por aqui'}
+                            description={mediaList.length === 0 ? 'Adicione seu primeiro filme, série ou anime para começar a construir sua coleção.' : 'Você ainda não adicionou itens desse tipo.'}
                             action={
                                 <MetalButton onClick={goCreate}>
                                     <IconPlus className="h-4 w-4" /> Adicionar item
@@ -216,9 +203,9 @@ export default function Dashboard() {
                             }
                         />
                     ) : (
-                        <motion.div layout className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        <motion.div layout className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                             <AnimatePresence mode="popLayout">
-                                {mediaList.map((item, index) => (
+                                {filteredList.map((item, index) => (
                                     <motion.div
                                         key={item.id}
                                         layout
