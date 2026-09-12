@@ -28,3 +28,8 @@ eslint-json.txt
 eslint-modal.txt
 lint-out.txt
 lint-report.txt
+
+# Environment variables (nunca versionar segredos)
+.env
+.env.*
+!.env.example
