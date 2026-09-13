@@ -153,9 +153,6 @@ export default function Dashboard() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <span className="hidden h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-bold text-purple-200 md:flex">
-                            {getInitials(user?.username)}
-                        </span>
                         <Button variant="ghost" size="icon" onClick={logout} aria-label="Sair da conta" title="Sair">
                             <IconLogOut className="h-[18px] w-[18px]" />
                         </Button>
