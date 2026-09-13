@@ -66,8 +66,8 @@ jobs:
           protocol: ftps
           # Envia o CONTEÚDO de dist/ (index.html, assets/, .htaccess...)
           local-dir: dist/
-          # Pasta no servidor onde o site fica (raiz do FTP + public_html)
-          server-dir: ${{ secrets.HOSTINGER_FTP_DIR || 'public_html/' }}
+          # A raiz do usuário FTP corresponde ao public_html do domínio
+          server-dir: ${{ secrets.HOSTINGER_FTP_DIR || '/' }}
           # false = só sincroniza/sobrescreve arquivos, não apaga o resto
           # (protege qualquer arquivo extra que exista no public_html)
           dangerous-clean-slate: false
