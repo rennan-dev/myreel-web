@@ -48,6 +48,8 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     min-height: 100vh;
+    /* evita rolagem horizontal acidental em mobile (iOS Safari) */
+    overflow-x: hidden;
   }
 
   ::selection {

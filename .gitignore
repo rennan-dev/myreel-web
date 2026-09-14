@@ -33,3 +33,6 @@ lint-report.txt
 .env
 .env.*
 !.env.example
+
+build-out.txt
+lint-dashboard.txt
