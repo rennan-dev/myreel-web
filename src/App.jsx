@@ -4,6 +4,7 @@ import { MotionConfig } from 'framer-motion';
 import { AuthProvider } from './context/AuthProvider';
 import { Background } from './components/Background';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { PageTracker } from './components/PageTracker';
 import { LoadingState } from './components/ui/LoadingState';
 
 const Login = lazy(() => import('./pages/Login'));
@@ -18,6 +19,7 @@ function App() {
             <AuthProvider>
                 <Background />
                 <BrowserRouter>
+                    <PageTracker />
                     <Suspense
                         fallback={
                             <div className="flex min-h-screen items-center justify-center">
