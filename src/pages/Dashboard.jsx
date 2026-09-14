@@ -89,9 +89,9 @@ function MediaCard({ item }) {
                 )}
             </CoverImage>
 
-            <div className="flex flex-1 flex-col gap-3 p-5">
-                <div className="flex items-start justify-between gap-3">
-                    <h3 className="truncate text-xl font-semibold tracking-tight text-foreground" title={item.name}>
+            <div className="flex flex-1 flex-col gap-2 p-3 sm:gap-3 sm:p-5">
+                <div className="flex items-start justify-between gap-2 sm:gap-3">
+                    <h3 className="truncate text-sm font-semibold tracking-tight text-foreground sm:text-xl" title={item.name}>
                         {item.name}
                     </h3>
                     {rating > 0 && (
@@ -102,7 +102,7 @@ function MediaCard({ item }) {
                 </div>
 
                 {item.description && (
-                    <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">{item.description}</p>
+                    <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">{item.description}</p>
                 )}
             </div>
         </Card>
@@ -200,7 +200,7 @@ export default function Dashboard() {
                             }
                         />
                     ) : (
-                        <motion.div layout className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                        <motion.div layout className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                             <AnimatePresence mode="popLayout">
                                 {filteredList.map((item, index) => (
                                     <motion.div
