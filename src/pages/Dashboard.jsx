@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
 import api from '../api/axios';
 import { Button } from '../components/ui/button';
-import { MetalButton } from '../components/ui/MetalButton';
+import { GradientButton } from '../components/ui/GradientButton';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -166,9 +166,9 @@ export default function Dashboard() {
                     title={`Olá, ${user?.username}`}
                     description="Gerencie seus filmes, séries e animes em um só lugar."
                     actions={
-                        <MetalButton onClick={goCreate}>
+                        <GradientButton onClick={goCreate}>
                             <IconPlus className="h-4 w-4" /> Adicionar Item
-                        </MetalButton>
+                        </GradientButton>
                     }
                 />
 
@@ -194,9 +194,9 @@ export default function Dashboard() {
                             title={mediaList.length === 0 ? 'Sua lista está vazia' : 'Nada por aqui'}
                             description={mediaList.length === 0 ? 'Adicione seu primeiro filme, série ou anime para começar a construir sua coleção.' : 'Você ainda não adicionou itens desse tipo.'}
                             action={
-                                <MetalButton onClick={goCreate}>
+                                <GradientButton onClick={goCreate}>
                                     <IconPlus className="h-4 w-4" /> Adicionar item
-                                </MetalButton>
+                                </GradientButton>
                             }
                         />
                     ) : (

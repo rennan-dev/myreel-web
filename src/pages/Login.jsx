@@ -5,7 +5,7 @@ import { AuthContext } from '../context/AuthContext';
 import api from '../api/axios';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
-import { MetalButton } from '../components/ui/MetalButton';
+import { GradientButton } from '../components/ui/GradientButton';
 import { IconReel } from '../components/ui/icons';
 
 export default function Login() {
@@ -94,15 +94,14 @@ export default function Login() {
                             />
                         </div>
 
-                        <MetalButton
+                        <GradientButton
                             type="submit"
-                            metalFxClassName="w-full"
-                            className="w-full"
+                            className="w-full mt-6"
                             disabled={submitting}
                             aria-busy={submitting}
                         >
                             {submitting ? 'Entrando...' : 'Entrar'}
-                        </MetalButton>
+                        </GradientButton>
                     </form>
 
                     <div className="mt-6 text-center text-sm">
