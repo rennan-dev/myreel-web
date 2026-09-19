@@ -4,13 +4,13 @@ import api from '../../api/axios';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
 import { Textarea } from '../ui/Textarea';
-import { Checkbox } from '../ui/Checkbox';
+import { Select } from '../ui/Select';
 import { Button } from '../ui/button';
 import { IconFilm, IconTv, IconSpark } from '../ui/icons';
 import { CoverEditor } from './CoverEditor';
-import { cn } from '../../lib/utils';
+import { STATUS_OPTIONS, cn } from '../../lib/utils';
 
-const INITIAL_FORM = { type: 'filme', name: '', rating: '', description: '', release_date: '', is_watched: false, watched_at: '' };
+const INITIAL_FORM = { type: 'filme', name: '', rating: '', description: '', release_date: '', status: 'nao_assisti' };
 const TYPE_OPTIONS = [
     { value: 'filme', label: 'Filme', Icon: IconFilm },
     { value: 'serie', label: 'Série', Icon: IconTv },
@@ -63,17 +63,13 @@ export function CreateMediaForm({ onCancel, onCreated }) {
         setSubmitting(true);
         setSubmitError('');
         try {
-            const isFilm = formData.type === 'filme';
             const payload = new FormData();
             payload.append('type', formData.type);
             payload.append('name', formData.name);
             if (formData.rating !== '') payload.append('rating', formData.rating);
             if (formData.description) payload.append('description', formData.description);
-            if (isFilm) {
-                if (formData.release_date) payload.append('release_date', formData.release_date);
-                payload.append('is_watched', formData.is_watched ? '1' : '0');
-                if (formData.is_watched && formData.watched_at) payload.append('watched_at', formData.watched_at);
-            }
+            payload.append('status', formData.status);
+            if (formData.release_date) payload.append('release_date', formData.release_date);
             if (coverFile) {
                 payload.append('image', coverFile);
                 payload.append('cover_x', String(coverValue.x));
@@ -83,8 +79,6 @@ export function CreateMediaForm({ onCancel, onCreated }) {
             const res = await api.post('/media', payload);
             const created = res?.data?.data;
             if (onCreated) onCreated(created);
-            // replace: true remove "/novo" do histórico, então o botão de voltar
-            // da página de detalhes não retorna ao formulário de criação.
             navigate(created?.id ? `/media/${created.id}` : '/', { replace: true });
         } catch (error) {
             const errs = error.response?.data?.errors;
@@ -114,7 +108,7 @@ export function CreateMediaForm({ onCancel, onCreated }) {
                 </div>
             </div>
             <div>
-                <Label htmlFor="cm-cover">Capa (imagem do dispositivo)</Label>
+                <Label htmlFor="cm-cover">Capa</Label>
                 <Input id="cm-cover" ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} />
                 <p className="mt-1 text-xs text-muted-foreground">Apenas imagens (JPG, PNG, WEBP ou GIF) de até 4MB.</p>
                 {fileError && (<p role="alert" className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{fileError}</p>)}
@@ -135,22 +129,22 @@ export function CreateMediaForm({ onCancel, onCreated }) {
                 <Label htmlFor="cm-desc">Descrição</Label>
                 <Textarea id="cm-desc" placeholder="Uma breve sinopse..." className="h-36 resize-none overflow-y-auto" value={formData.description} onChange={(e) => set('description', e.target.value)} />
             </div>
-            {formData.type === 'filme' && (
-                <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dados exclusivos do filme</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                    <Label htmlFor="cm-status">Status</Label>
+                    <Select id="cm-status" value={formData.status} onChange={(e) => set('status', e.target.value)}>
+                        {STATUS_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </Select>
+                </div>
+                {formData.type === 'filme' && (
                     <div>
                         <Label htmlFor="cm-release">Data de lançamento</Label>
-                        <Input id="cm-release" type="date" required value={formData.release_date} onChange={(e) => set('release_date', e.target.value)} />
+                        <Input id="cm-release" type="date" value={formData.release_date} onChange={(e) => set('release_date', e.target.value)} />
                     </div>
-                    <Checkbox label="Já assisti a este filme" checked={formData.is_watched} onChange={(e) => set('is_watched', e.target.checked)} />
-                    {formData.is_watched && (
-                        <div>
-                            <Label htmlFor="cm-watched">Quando assistiu?</Label>
-                            <Input id="cm-watched" type="date" required value={formData.watched_at} onChange={(e) => set('watched_at', e.target.value)} />
-                        </div>
-                    )}
-                </div>
-            )}
+                )}
+            </div>
             {submitError && (
                 <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{submitError}</p>
             )}

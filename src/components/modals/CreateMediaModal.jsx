@@ -5,12 +5,12 @@ import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
-import { Checkbox } from '../ui/Checkbox';
 import { Button } from '../ui/button';
+import { STATUS_OPTIONS } from '../../lib/utils';
 
 const INITIAL_FORM = {
     type: 'filme', name: '', rating: '', description: '',
-    release_date: '', is_watched: false, watched_at: ''
+    release_date: '', status: 'nao_assisti'
 };
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -85,20 +85,13 @@ export default function CreateMediaModal({ open, onClose, onSuccess }) {
         setSubmitError('');
         try {
             // sempre multipart: capa é só upload do dispositivo (sem URL)
-            // serie/anime não enviam datas da mídia: release vive na temporada, watched no episódio
-            const isFilm = formData.type === 'filme';
             const payload = new FormData();
             payload.append('type', formData.type);
             payload.append('name', formData.name);
             if (formData.rating !== '') payload.append('rating', formData.rating);
             if (formData.description) payload.append('description', formData.description);
-            if (isFilm) {
-                if (formData.release_date) payload.append('release_date', formData.release_date);
-                payload.append('is_watched', formData.is_watched ? '1' : '0');
-                if (formData.is_watched && formData.watched_at) {
-                    payload.append('watched_at', formData.watched_at);
-                }
-            }
+            payload.append('status', formData.status);
+            if (formData.release_date) payload.append('release_date', formData.release_date);
             if (coverFile) payload.append('image', coverFile);
             await api.post('/media', payload);
             onSuccess(); //recarrega a lista no Dashboard
@@ -161,7 +154,7 @@ export default function CreateMediaModal({ open, onClose, onSuccess }) {
                 </div>
 
                 <div>
-                    <Label htmlFor="cover">Capa (imagem do dispositivo)</Label>
+                    <Label htmlFor="cover">Capa</Label>
                     <Input
                         id="cover"
                         ref={fileInputRef}
@@ -207,40 +200,31 @@ export default function CreateMediaModal({ open, onClose, onSuccess }) {
                     />
                 </div>
 
-                {formData.type === 'filme' && (
-                    <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            Dados exclusivos do filme
-                        </p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <Label htmlFor="status">Status</Label>
+                        <Select
+                            id="status"
+                            value={formData.status}
+                            onChange={(e) => set('status', e.target.value)}
+                        >
+                            {STATUS_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </Select>
+                    </div>
+                    {formData.type === 'filme' && (
                         <div>
                             <Label htmlFor="release_date">Data de lançamento</Label>
                             <Input
                                 id="release_date"
                                 type="date"
-                                required
                                 value={formData.release_date}
                                 onChange={(e) => set('release_date', e.target.value)}
                             />
                         </div>
-                        <Checkbox
-                            label="Já assisti a este filme"
-                            checked={formData.is_watched}
-                            onChange={(e) => set('is_watched', e.target.checked)}
-                        />
-                        {formData.is_watched && (
-                            <div>
-                                <Label htmlFor="watched_at">Quando assistiu?</Label>
-                                <Input
-                                    id="watched_at"
-                                    type="date"
-                                    required
-                                    value={formData.watched_at}
-                                    onChange={(e) => set('watched_at', e.target.value)}
-                                />
-                            </div>
-                        )}
-                    </div>
-                )}
+                    )}
+                </div>
 
                 {submitError && (
                     <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">

@@ -14,7 +14,7 @@ export default function MediaCreatePage() {
             <Card className="p-5 sm:p-8">
                 <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-purple-300/90">Novo item</p>
                 <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Adicionar à lista</h1>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Cadastre um novo filme, série ou anime. Séries e animes ganham temporadas e episódios na página do item.</p>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Cadastre um novo filme, série ou anime</p>
                 <div className="mt-6">
                     <CreateMediaForm onCancel={goBack} />
                 </div>

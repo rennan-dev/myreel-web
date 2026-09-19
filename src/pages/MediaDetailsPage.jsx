@@ -5,16 +5,15 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { LoadingState } from '../components/ui/LoadingState';
 import { EmptyState } from '../components/ui/EmptyState';
-import { SeasonsSection } from '../components/media/SeasonsSection';
 import { CoverImage } from '../components/media/CoverImage';
 import { CoverEditor } from '../components/media/CoverEditor';
-import { resolveCoverUrl } from '../lib/utils';
+import { resolveCoverUrl, statusMeta, STATUS_OPTIONS } from '../lib/utils';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
 import { Textarea } from '../components/ui/Textarea';
-import { Checkbox } from '../components/ui/Checkbox';
+import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/button';
-import { IconArrowLeft, IconFilm, IconTv, IconSpark, IconStar, IconCalendar, IconCheck, IconPencil, IconTrash } from '../components/ui/icons';
+import { IconArrowLeft, IconFilm, IconTv, IconSpark, IconStar, IconCalendar, IconPencil, IconTrash } from '../components/ui/icons';
 
 const TYPE_META = {
     filme: { label: 'Filme', badge: 'violet', Icon: IconFilm },
@@ -54,19 +53,6 @@ export default function MediaDetailsPage() {
         })();
         return () => { cancelled = true; };
     }, [id]);
-    // Atualização silenciosa: não ativa o loading global para a página
-    // (e o modo de edição) permanecer montada, preservando rascunhos locais.
-    const fetchItem = async () => {
-        try {
-            const res = await api.get(`/media/${id}`);
-            setItem(res.data);
-            setError('');
-        } catch {
-            setError('Não foi possível carregar este item.');
-        } finally {
-            setLoading(false);
-        }
-    };
     if (loading) {
         return (
             <div className="mx-auto w-full max-w-5xl px-4 pt-6 pb-12 sm:px-6">
@@ -85,9 +71,7 @@ export default function MediaDetailsPage() {
     const meta = TYPE_META[item.type] || TYPE_META.filme;
     const TypeIcon = meta.Icon;
     const rating = Number(item.rating);
-    const seasons = item.seasons ?? [];
-    const watchedEps = seasons.reduce((a, s) => a + (s.episodes?.filter((e) => e.is_watched).length || 0), 0);
-    const totalEps = seasons.reduce((a, s) => a + (s.episodes?.length || 0), 0);
+    const status = statusMeta(item.status);
     return (
         <div className="mx-auto w-full max-w-5xl px-4 pt-6 pb-12 sm:px-6">
             <div className="mb-4 flex items-center justify-between">
@@ -101,7 +85,6 @@ export default function MediaDetailsPage() {
             {editing ? (
                 <EditMediaForm
                     item={item}
-                    onChanged={fetchItem}
                     onCancel={() => setEditing(false)}
                     onSaved={(fresh) => { setItem(fresh); setEditing(false); }}
                     onDeleted={() => navigate('/', { replace: true })}
@@ -126,26 +109,14 @@ export default function MediaDetailsPage() {
                             {!Number.isNaN(rating) && rating > 0 && (
                                 <Badge variant="amber"><IconStar className="h-3.5 w-3.5" filled />{rating.toFixed(1)}</Badge>
                             )}
-                            {item.type === 'filme' && item.is_watched && (
-                                <Badge variant="emerald"><IconCheck className="h-3.5 w-3.5" />Assistido</Badge>
-                            )}
+                            <Badge variant={status.badge}>{status.label}</Badge>
                         </div>
                         <h1 className="mt-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{item.name}</h1>
                         {item.description && (<p className="mt-2 max-h-40 overflow-y-auto text-sm leading-relaxed text-muted-foreground">{item.description}</p>)}
-                        {item.type === 'filme' ? (
-                            <FilmMeta item={item} />
-                        ) : (
-                            <p className="mt-3 text-sm text-muted-foreground">{seasons.length} {seasons.length === 1 ? 'temporada' : 'temporadas'} · {watchedEps}/{totalEps} episódios assistidos</p>
-                        )}
+                        <FilmMeta item={item} />
                     </div>
                 </div>
             </Card>
-            {item.type !== 'filme' && (
-                <div className="mt-6">
-                    <h2 className="mb-3 text-lg font-bold text-foreground">Temporadas e episódios</h2>
-                    <SeasonsSection media={item} onChanged={fetchItem} episodesClickable />
-                </div>
-            )}
                 </>
             )}
         </div>
@@ -153,24 +124,21 @@ export default function MediaDetailsPage() {
 }
 
 /**
- * Modo de edição da mídia: formulário + temporadas editáveis,
- * botões Cancelar/Salvar e Excluir. Datas de filme só quando type=filme.
+ * Modo de edição da mídia: formulário editável com status,
+ * botões Cancelar/Salvar e Excluir. Data de filme só quando type=filme.
  */
-function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
+function EditMediaForm({ item, onCancel, onSaved, onDeleted }) {
     const isFilm = item.type === 'filme';
     const [name, setName] = useState(item.name);
     const [rating, setRating] = useState(item.rating != null ? String(item.rating) : '');
     const [description, setDescription] = useState(item.description ?? '');
     const [releaseDate, setReleaseDate] = useState(item.release_date ? String(item.release_date).slice(0, 10) : '');
-    const [isWatched, setIsWatched] = useState(Boolean(item.is_watched));
-    const [watchedAt, setWatchedAt] = useState(item.watched_at ? String(item.watched_at).slice(0, 10) : '');
+    const [status, setStatus] = useState(item.status ?? 'nao_assisti');
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [formError, setFormError] = useState('');
-    // Rascunhos das temporadas (datas e qtde de episódios): aplicados ao clicar em "Salvar".
-    const [seasonDrafts, setSeasonDrafts] = useState({ releaseDates: {}, episodeCounts: {} });
     // Enquadramento da capa (posição % + zoom) ajustado no editor e salvo junto.
     const [coverValue, setCoverValue] = useState({
         x: Number(item.cover_x) || 0,
@@ -205,34 +173,6 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
         setPreview(null);
     };
 
-    // Aplica os rascunhos das temporadas: grava as datas informadas e
-    // cria os episódios 1 até N que ainda não existem em cada temporada.
-    const applySeasonDrafts = async () => {
-        const seasonsById = new Map((item.seasons ?? []).map((s) => [String(s.id), s]));
-
-        const releaseDates = seasonDrafts.releaseDates ?? {};
-        for (const [seasonId, value] of Object.entries(releaseDates)) {
-            const season = seasonsById.get(String(seasonId));
-            if (!season) continue; // temporada foi excluída durante a edição
-            const current = season.release_date ? String(season.release_date).slice(0, 10) : '';
-            if (value === current) continue;
-            await api.patch(`/seasons/${seasonId}`, { release_date: value === '' ? null : value });
-        }
-
-        const counts = seasonDrafts.episodeCounts ?? {};
-        for (const [seasonId, raw] of Object.entries(counts)) {
-            const season = seasonsById.get(String(seasonId));
-            if (!season) continue;
-            const total = Number.parseInt(raw, 10);
-            if (!Number.isInteger(total) || total < 1 || total > 50) continue;
-            const existing = new Set((season.episodes ?? []).map((ep) => Number(ep.episode_number)));
-            for (let n = 1; n <= total; n += 1) {
-                if (existing.has(n)) continue;
-                await api.post(`/seasons/${seasonId}/episodes`, { episode_number: n, is_watched: false });
-            }
-        }
-    };
-
     const handleSave = async (e) => {
         e.preventDefault();
         setFormError('');
@@ -247,31 +187,10 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
             fd.append('cover_x', String(coverValue.x));
             fd.append('cover_y', String(coverValue.y));
             fd.append('cover_scale', String(coverValue.scale));
-            if (isFilm) {
-                if (releaseDate) fd.append('release_date', releaseDate);
-                fd.append('is_watched', isWatched ? '1' : '0');
-                if (isWatched) fd.append('watched_at', watchedAt);
-            }
-            await api.post(`/media/${item.id}`, fd);
-
-            // salva as datas e gera os episódios das temporadas
-            let seasonsError = false;
-            try {
-                await applySeasonDrafts();
-            } catch {
-                seasonsError = true;
-            }
-
-            const res = await api.get(`/media/${item.id}`);
-            if (seasonsError) {
-                setSeasonDrafts({ releaseDates: {}, episodeCounts: {} });
-                setFormError('O item foi salvo, mas ocorreu um erro ao salvar os dados das temporadas.');
-                onChanged();
-                setSaving(false);
-            } else {
-                setSeasonDrafts({ releaseDates: {}, episodeCounts: {} });
-                onSaved(res.data);
-            }
+            fd.append('status', status);
+            if (isFilm && releaseDate) fd.append('release_date', releaseDate);
+            const res = await api.post(`/media/${item.id}`, fd);
+            onSaved(res.data);
         } catch (err) {
             setFormError(err.response?.data?.message || 'Erro ao salvar as alterações.');
             setSaving(false);
@@ -279,7 +198,7 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
     };
 
     const handleDelete = async () => {
-        const ok = window.confirm(`Excluir "${item.name}" e todas as temporadas/episódios dele?`);
+        const ok = window.confirm(`Excluir "${item.name}" da sua lista?`);
         if (!ok) return;
         setFormError('');
         setDeleting(true);
@@ -317,7 +236,7 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
                         />
                     </div>
                     <div>
-                        <Label htmlFor="edit-cover">Capa (imagem do dispositivo)</Label>
+                        <Label htmlFor="edit-cover">Capa</Label>
                         <CoverEditor
                             src={preview ?? resolveCoverUrl(item)}
                             value={coverValue}
@@ -351,28 +270,22 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
                             onChange={(e) => setDescription(e.target.value)}
                         />
                     </div>
-                    {isFilm && (
-                        <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                Dados exclusivos do filme
-                            </p>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <Label htmlFor="edit-status">Status</Label>
+                            <Select id="edit-status" value={status} onChange={(e) => setStatus(e.target.value)}>
+                                {STATUS_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </Select>
+                        </div>
+                        {isFilm && (
                             <div>
                                 <Label htmlFor="edit-release">Data de lançamento</Label>
                                 <Input id="edit-release" type="date" value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} />
                             </div>
-                            <Checkbox
-                                label="Já assisti a este filme"
-                                checked={isWatched}
-                                onChange={(e) => setIsWatched(e.target.checked)}
-                            />
-                            {isWatched && (
-                                <div>
-                                    <Label htmlFor="edit-watched">Quando assistiu?</Label>
-                                    <Input id="edit-watched" type="date" required value={watchedAt} onChange={(e) => setWatchedAt(e.target.value)} />
-                                </div>
-                            )}
-                        </div>
-                    )}
+                        )}
+                    </div>
                     {formError && (
                         <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
                             {formError}
@@ -380,19 +293,6 @@ function EditMediaForm({ item, onChanged, onCancel, onSaved, onDeleted }) {
                     )}
                 </Card>
             </form>
-
-            {!isFilm && (
-                <div>
-                    <h2 className="mb-3 text-lg font-bold text-foreground">Temporadas e episódios</h2>
-                    <SeasonsSection
-                        media={item}
-                        onChanged={onChanged}
-                        editable
-                        hideEpisodes
-                        onSeasonDraftsChange={setSeasonDrafts}
-                    />
-                </div>
-            )}
 
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <Button type="button" variant="ghost" onClick={handleDelete} disabled={deleting || saving}>
@@ -424,9 +324,6 @@ function FilmMeta({ item }) {
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
             {formatDate(item.release_date) && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1"><IconCalendar className="h-3.5 w-3.5" />{formatDate(item.release_date)}</span>
-            )}
-            {item.is_watched && formatDate(item.watched_at) && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1"><IconCheck className="h-3.5 w-3.5" />Visto em {formatDate(item.watched_at)}</span>
             )}
         </div>
     );
