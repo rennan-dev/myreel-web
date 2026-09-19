@@ -57,6 +57,24 @@
     color: #fff;
   }
 
+  /* <select> nativo: garante que a lista suspensa (options) use o tema dark
+     com contraste adequado, em vez do fundo branco do render padrão do SO */
+  select {
+    background-color: var(--color-surface);
+    color: var(--color-foreground);
+  }
+
+  select option {
+    background-color: var(--color-surface);
+    color: var(--color-foreground);
+  }
+
+  select option:checked,
+  select option:hover {
+    background-color: rgba(139, 92, 246, 0.35);
+    color: #fff;
+  }
+
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;

@@ -11,8 +11,9 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingState } from '../components/ui/LoadingState';
 import { CoverImage } from '../components/media/CoverImage';
+import { statusMeta } from '../lib/utils';
 import {
-    IconReel, IconFilm, IconTv, IconSpark, IconStar, IconCheck, IconLogOut, IconPlus,
+    IconReel, IconFilm, IconTv, IconSpark, IconStar, IconLogOut, IconPlus,
 } from '../components/ui/icons';
 
 const TYPE_META = {
@@ -49,8 +50,7 @@ function MediaCard({ item }) {
     const navigate = useNavigate();
     const meta = TYPE_META[item.type] || TYPE_META.filme;
     const TypeIcon = meta.Icon;
-    const isFilm = item.type === 'filme';
-    const isWatched = Boolean(item.is_watched);
+    const status = statusMeta(item.status);
     const rating = Number(item.rating);
 
     return (
@@ -82,11 +82,9 @@ function MediaCard({ item }) {
                 <div className="absolute left-3 top-3">
                     <Badge variant={meta.badge}>{meta.label}</Badge>
                 </div>
-                {isFilm && isWatched && (
-                    <div className="absolute right-3 top-3">
-                        <Badge variant="watched"><IconCheck className="h-3 w-3" /> Assistido</Badge>
-                    </div>
-                )}
+                <div className="absolute right-3 top-3">
+                    <Badge variant={status.badge}>{status.label}</Badge>
+                </div>
             </CoverImage>
 
             <div className="flex flex-1 flex-col gap-2 p-3 sm:gap-3 sm:p-5">
