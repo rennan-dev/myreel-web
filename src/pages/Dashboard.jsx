@@ -13,13 +13,14 @@ import { LoadingState } from '../components/ui/LoadingState';
 import { CoverImage } from '../components/media/CoverImage';
 import { statusMeta } from '../lib/utils';
 import {
-    IconReel, IconFilm, IconTv, IconSpark, IconStar, IconLogOut, IconPlus,
+    IconReel, IconFilm, IconTv, IconSpark, IconGamepad, IconStar, IconLogOut, IconPlus,
 } from '../components/ui/icons';
 
 const TYPE_META = {
     filme: { label: 'Filme', badge: 'violet', Icon: IconFilm },
     serie: { label: 'Série', badge: 'blue', Icon: IconTv },
     anime: { label: 'Anime', badge: 'emerald', Icon: IconSpark },
+    jogo: { label: 'Jogo', badge: 'rose', Icon: IconGamepad },
 };
 
 function getInitials(name) {
@@ -171,10 +172,11 @@ export default function Dashboard() {
                 />
 
                 {!loading && mediaList.length > 0 && (
-                    <div className="mt-8 grid grid-cols-3 gap-3">
+                    <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <StatCard Icon={IconFilm} label="Filmes" value={mediaList.filter((m) => m.type === 'filme').length} accent="border-sky-500/30 bg-sky-500/15 text-sky-300" onClick={() => toggleFilter('filme')} active={filter === 'filme'} />
                         <StatCard Icon={IconTv} label="Séries" value={mediaList.filter((m) => m.type === 'serie').length} accent="border-emerald-500/30 bg-emerald-500/15 text-emerald-300" onClick={() => toggleFilter('serie')} active={filter === 'serie'} />
                         <StatCard Icon={IconSpark} label="Animes" value={mediaList.filter((m) => m.type === 'anime').length} accent="border-violet-500/30 bg-violet-500/15 text-violet-300" onClick={() => toggleFilter('anime')} active={filter === 'anime'} />
+                        <StatCard Icon={IconGamepad} label="Jogos" value={mediaList.filter((m) => m.type === 'jogo').length} accent="border-rose-500/30 bg-rose-500/15 text-rose-300" onClick={() => toggleFilter('jogo')} active={filter === 'jogo'} />
                     </div>
                 )}
 

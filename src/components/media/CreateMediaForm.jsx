@@ -6,15 +6,16 @@ import { Label } from '../ui/Label';
 import { Textarea } from '../ui/Textarea';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/button';
-import { IconFilm, IconTv, IconSpark } from '../ui/icons';
+import { IconFilm, IconTv, IconSpark, IconGamepad } from '../ui/icons';
 import { CoverEditor } from './CoverEditor';
-import { STATUS_OPTIONS, cn } from '../../lib/utils';
+import { defaultStatusFor, statusOptionsFor, cn } from '../../lib/utils';
 
 const INITIAL_FORM = { type: 'filme', name: '', rating: '', description: '', release_date: '', status: 'nao_assisti' };
 const TYPE_OPTIONS = [
     { value: 'filme', label: 'Filme', Icon: IconFilm },
     { value: 'serie', label: 'Série', Icon: IconTv },
     { value: 'anime', label: 'Anime', Icon: IconSpark },
+    { value: 'jogo', label: 'Jogo', Icon: IconGamepad },
 ];
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_SIZE = 4 * 1024 * 1024;
@@ -91,9 +92,18 @@ export function CreateMediaForm({ onCancel, onCreated }) {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
                 <Label>Tipo</Label>
-                <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Tipo">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Tipo">
                     {TYPE_OPTIONS.map((opt) => (
-                        <TypeButton key={opt.value} opt={opt} active={formData.type === opt.value} onSelect={() => set('type', opt.value)} />
+                        <TypeButton
+                            key={opt.value}
+                            opt={opt}
+                            active={formData.type === opt.value}
+                            onSelect={() => {
+                                // ao trocar o tipo, o status volta para o padrão do novo tipo
+                                set('type', opt.value);
+                                set('status', defaultStatusFor(opt.value));
+                            }}
+                        />
                     ))}
                 </div>
             </div>
@@ -133,7 +143,7 @@ export function CreateMediaForm({ onCancel, onCreated }) {
                 <div>
                     <Label htmlFor="cm-status">Status</Label>
                     <Select id="cm-status" value={formData.status} onChange={(e) => set('status', e.target.value)}>
-                        {STATUS_OPTIONS.map((opt) => (
+                        {statusOptionsFor(formData.type).map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
                     </Select>
