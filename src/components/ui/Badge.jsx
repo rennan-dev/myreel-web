@@ -5,6 +5,7 @@ const badgeVariants = {
   blue: "border-sky-500/35 bg-sky-500/15 text-sky-200",
   emerald: "border-emerald-500/35 bg-emerald-500/15 text-emerald-200",
   amber: "border-amber-400/30 bg-amber-400/10 text-amber-200",
+  rose: "border-rose-500/35 bg-rose-500/15 text-rose-200",
   neutral: "border-white/15 bg-white/5 text-muted-foreground",
   watched: "border-purple-400/40 bg-purple-500/20 text-purple-200 shadow-glow",
 };
