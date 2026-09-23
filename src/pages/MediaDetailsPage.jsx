@@ -7,18 +7,26 @@ import { LoadingState } from '../components/ui/LoadingState';
 import { EmptyState } from '../components/ui/EmptyState';
 import { CoverImage } from '../components/media/CoverImage';
 import { CoverEditor } from '../components/media/CoverEditor';
-import { resolveCoverUrl, statusMeta, STATUS_OPTIONS } from '../lib/utils';
+import { resolveCoverUrl, statusMeta, statusOptionsFor, defaultStatusFor } from '../lib/utils';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
 import { Textarea } from '../components/ui/Textarea';
 import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/button';
-import { IconArrowLeft, IconFilm, IconTv, IconSpark, IconStar, IconCalendar, IconPencil, IconTrash } from '../components/ui/icons';
+import { IconArrowLeft, IconFilm, IconTv, IconSpark, IconGamepad, IconStar, IconCalendar, IconPencil, IconTrash } from '../components/ui/icons';
 
 const TYPE_META = {
     filme: { label: 'Filme', badge: 'violet', Icon: IconFilm },
     serie: { label: 'Série', badge: 'blue', Icon: IconTv },
     anime: { label: 'Anime', badge: 'emerald', Icon: IconSpark },
+    jogo: { label: 'Jogo', badge: 'rose', Icon: IconGamepad },
+};
+
+const TYPE_LABELS = {
+    filme: 'filme',
+    serie: 'série',
+    anime: 'anime',
+    jogo: 'jogo',
 };
 
 function formatDate(value) {
@@ -133,7 +141,7 @@ function EditMediaForm({ item, onCancel, onSaved, onDeleted }) {
     const [rating, setRating] = useState(item.rating != null ? String(item.rating) : '');
     const [description, setDescription] = useState(item.description ?? '');
     const [releaseDate, setReleaseDate] = useState(item.release_date ? String(item.release_date).slice(0, 10) : '');
-    const [status, setStatus] = useState(item.status ?? 'nao_assisti');
+    const [status, setStatus] = useState(item.status ?? defaultStatusFor(item.type));
     const [file, setFile] = useState(null);
     const [preview, setPreview] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -216,7 +224,7 @@ function EditMediaForm({ item, onCancel, onSaved, onDeleted }) {
             <form id="edit-media-form" onSubmit={handleSave}>
                 <Card className="flex flex-col gap-4 p-5">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Editando {isFilm ? 'filme' : item.type === 'serie' ? 'série' : 'anime'}
+                        Editando {TYPE_LABELS[item.type] ?? 'item'}
                     </p>
                     <div>
                         <Label htmlFor="edit-name">Nome</Label>
@@ -274,7 +282,7 @@ function EditMediaForm({ item, onCancel, onSaved, onDeleted }) {
                         <div>
                             <Label htmlFor="edit-status">Status</Label>
                             <Select id="edit-status" value={status} onChange={(e) => setStatus(e.target.value)}>
-                                {STATUS_OPTIONS.map((opt) => (
+                                {statusOptionsFor(item.type).map((opt) => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                                 ))}
                             </Select>

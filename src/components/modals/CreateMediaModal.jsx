@@ -6,7 +6,7 @@ import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
 import { Button } from '../ui/button';
-import { STATUS_OPTIONS } from '../../lib/utils';
+import { defaultStatusFor, statusOptionsFor } from '../../lib/utils';
 
 const INITIAL_FORM = {
     type: 'filme', name: '', rating: '', description: '',
@@ -114,16 +114,21 @@ export default function CreateMediaModal({ open, onClose, onSuccess }) {
             open={open}
             onClose={handleClose}
             title="Adicionar à lista"
-            description="Cadastre um novo filme, série ou anime."
+            description="Cadastre um novo filme, série, anime ou jogo."
         >
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <Label htmlFor="type">Tipo</Label>
-                        <Select id="type" value={formData.type} onChange={(e) => set('type', e.target.value)}>
+                        <Select id="type" value={formData.type} onChange={(e) => {
+                            // ao trocar o tipo, o status volta para o padrão do novo tipo
+                            set('type', e.target.value);
+                            set('status', defaultStatusFor(e.target.value));
+                        }}>
                             <option value="filme">Filme</option>
                             <option value="serie">Série</option>
                             <option value="anime">Anime</option>
+                            <option value="jogo">Jogo</option>
                         </Select>
                     </div>
                     <div>
@@ -208,7 +213,7 @@ export default function CreateMediaModal({ open, onClose, onSuccess }) {
                             value={formData.status}
                             onChange={(e) => set('status', e.target.value)}
                         >
-                            {STATUS_OPTIONS.map((opt) => (
+                            {statusOptionsFor(formData.type).map((opt) => (
                                 <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}
                         </Select>
